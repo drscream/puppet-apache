@@ -3,7 +3,7 @@ define apache::vhost (
   $config_file="",
   $config_content=false,
   $htdocs=false,
-  $conf=false,
+  $home="",
   $readme=false,
   $docroot=false,
   $cgibin=true,
@@ -25,15 +25,17 @@ define apache::vhost (
   }
 
   # used in ERB templates
-  $wwwroot = $apache::params::root
+  if $home == "" {
+    $home = $apache::params::root
+  }
 
   $documentroot = $docroot ? {
-    false   => "${wwwroot}/${name}/htdocs",
+    false   => "${home}/${name}/htdocs",
     default => $docroot,
   }
 
   $cgipath = $cgibin ? {
-    true    => "${wwwroot}/${name}/cgi-bin/",
+    true    => "${home}/${name}/cgi-bin/",
     false   => false,
     default => $cgibin,
   }
@@ -74,7 +76,7 @@ define apache::vhost (
         notify  => Exec["apache-graceful"],
       }
 
-      file { "${apache::params::root}/${name}":
+      file { "${home}/${name}":
         ensure => directory,
         owner  => root,
         group  => root,
@@ -87,23 +89,7 @@ define apache::vhost (
         require => File["root directory"],
       }
 
-      file { "${apache::params::root}/${name}/conf":
-        ensure => directory,
-        owner  => $admin ? {
-          "" => $wwwuser,
-          default => $admin,
-        },
-        group  => $group,
-        mode   => $mode,
-        seltype => $operatingsystem ? {
-          redhat => "httpd_config_t",
-          CentOS => "httpd_config_t",
-          default => undef,
-        },
-        require => [File["${apache::params::root}/${name}"]],
-      }
-
-      file { "${apache::params::root}/${name}/htdocs":
+      file { "${home}/${name}/htdocs":
         ensure => directory,
         owner  => $wwwuser,
         group  => $group,
@@ -113,19 +99,12 @@ define apache::vhost (
           CentOS => "httpd_sys_content_t",
           default => undef,
         },
-        require => [File["${apache::params::root}/${name}"]],
+        require => [File["${home}/${name}"]],
       }
  
       if $htdocs {
-        File["${apache::params::root}/${name}/htdocs"] {
+        File["${home}/${name}/htdocs"] {
           source  => $htdocs,
-          recurse => true,
-        }
-      }
-
-      if $conf {
-        File["${apache::params::root}/${name}/conf"] {
-          source  => $conf,
           recurse => true,
         }
       }
@@ -133,11 +112,11 @@ define apache::vhost (
       # cgi-bin
       file { "${name} cgi-bin directory":
         path   => $cgipath ? {
-          false   => "${apache::params::root}/${name}/cgi-bin/",
+          false   => "${home}/${name}/cgi-bin/",
           default => $cgipath,
         },
         ensure => $cgipath ? {
-          "${apache::params::root}/${name}/cgi-bin/" => directory,
+          "${home}/${name}/cgi-bin/" => directory,
           default => undef, # don't manage this directory unless under $root/$name
         },
         owner  => $wwwuser,
@@ -148,7 +127,7 @@ define apache::vhost (
           CentOS => "httpd_sys_script_exec_t",
           default => undef,
         },
-        require => [File["${apache::params::root}/${name}"]],
+        require => [File["${home}/${name}"]],
       }
 
       case $config_file {
@@ -174,7 +153,7 @@ define apache::vhost (
       }
 
       # Log files
-      file {"${apache::params::root}/${name}/logs":
+      file {"${home}/${name}/logs":
         ensure => directory,
         owner  => root,
         group  => root,
@@ -184,13 +163,13 @@ define apache::vhost (
           CentOS => "httpd_log_t",
           default => undef,
         },
-        require => File["${apache::params::root}/${name}"],
+        require => File["${home}/${name}"],
       }
 
       # We have to give log files to right people with correct rights on them.
       # Those rights have to match those set by logrotate
-      file { ["${apache::params::root}/${name}/logs/access.log",
-              "${apache::params::root}/${name}/logs/error.log"] :
+      file { ["${home}/${name}/logs/access.log",
+              "${home}/${name}/logs/error.log"] :
         ensure => present,
         owner => root,
         group => adm,
@@ -200,11 +179,11 @@ define apache::vhost (
           CentOS => "httpd_log_t",
           default => undef,
         },
-        require => File["${apache::params::root}/${name}/logs"],
+        require => File["${home}/${name}/logs"],
       }
 
       # Private data
-      file {"${apache::params::root}/${name}/private":
+      file {"${home}/${name}/private":
         ensure  => directory,
         owner   => $wwwuser,
         group   => $group,
@@ -214,11 +193,11 @@ define apache::vhost (
           CentOS => "httpd_sys_content_t",
           default => undef,
         },
-        require => File["${apache::params::root}/${name}"],
+        require => File["${home}/${name}"],
       }
 
       # README file
-      file {"${apache::params::root}/${name}/README":
+      file {"${home}/${name}/README":
         ensure  => present,
         owner   => root,
         group   => root,
@@ -227,7 +206,7 @@ define apache::vhost (
           false => template("apache/README_vhost.erb"),
           default => $readme,
         },
-        require => File["${apache::params::root}/${name}"],
+        require => File["${home}/${name}"],
       }
 
       exec {"enable vhost ${name}":
@@ -242,9 +221,8 @@ define apache::vhost (
           CentOS => File["${apache::params::a2ensite}"],
           default => Package[$apache::params::pkg]},
           File["${apache::params::conf}/sites-available/${name}"],
-          File["${apache::params::root}/${name}/htdocs"],
-          File["${apache::params::root}/${name}/logs"],
-          File["${apache::params::root}/${name}/conf"]
+          File["${home}/${name}/htdocs"],
+          File["${home}/${name}/logs"],
         ],
         unless  => "/bin/sh -c '[ -L ${apache::params::conf}/sites-enabled/${name} ] \\
           && [ ${apache::params::conf}/sites-enabled/${name} -ef ${apache::params::conf}/sites-available/${name} ]'",
@@ -262,9 +240,9 @@ define apache::vhost (
         require => Exec["disable vhost ${name}"]
       }
 
-      exec { "remove ${apache::params::root}/${name}":
-        command => "rm -rf ${apache::params::root}/${name}",
-        onlyif  => "test -d ${apache::params::root}/${name}",
+      exec { "remove ${home}/${name}":
+        command => "rm -rf ${home}/${name}",
+        onlyif  => "test -d ${home}/${name}",
         require => Exec["disable vhost ${name}"],
       }
 

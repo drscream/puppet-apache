@@ -139,15 +139,15 @@ define apache::vhost-ssl (
   }
 
   # used in ERB templates
-  $wwwroot = $apache::params::root
+  $home = $apache::params::root
 
   $documentroot = $docroot ? {
-    false   => "${wwwroot}/${name}/htdocs",
+    false   => "${home}/${name}/htdocs",
     default => $docroot,
   }
 
   $cgipath = $cgibin ? {
-    true    => "${wwwroot}/${name}/cgi-bin/",
+    true    => "${home}/${name}/cgi-bin/",
     false   => false,
     default => $cgibin,
   }

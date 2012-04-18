@@ -7,13 +7,14 @@
 <% end -%>
 
   DocumentRoot <%= documentroot %>
+  <Directory <%= documentroot %>>
+    Options -Indexes
+  </Directory>
 
   LogLevel warn
 
-  ErrorLog <%= wwwroot %>/<%= name %>/logs/error.log
-  CustomLog <%= wwwroot %>/<%= name %>/logs/access.log "<%= accesslog_format %>"
-
-  Include <%= wwwroot %>/<%= name%>/conf/*.conf
+  ErrorLog <%= home %>/<%= name %>/logs/error.log
+  CustomLog <%= home %>/<%= name %>/logs/access.log "<%= accesslog_format %>"
 
 <% if cgipath -%>
   ScriptAlias /cgi-bin/ <%= cgipath %>
@@ -23,6 +24,10 @@
   </Directory>
 <% end -%>
 
-  ServerSignature Off
+<% if apache_mpm_type == "itk" -%>
+  AssignUserID <%= user %> <%= user %>
+<% end -%>
 
+  ServerSignature Off
+  ServerAdmin abuse@skylime.net
 </VirtualHost>

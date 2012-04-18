@@ -4,7 +4,7 @@
 
 Common building blocks between apache::debian and apache::redhat.
 
-It shouldn't be necessary to directly include this class.
+It shouldnt be necessary to directly include this class.
 
 */
 class apache::base {
