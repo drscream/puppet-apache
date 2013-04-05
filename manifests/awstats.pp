@@ -7,7 +7,7 @@ class apache::awstats {
   # ensure non-managed files are purged from directory
   file {"/etc/awstats":
     ensure  => directory,
-    source  => "puppet:///modules/apache/etc/awstats",
+    source  => "puppet:///modules/${module_name}/etc/awstats",
     mode    => 0755,
     purge   => true,
     recurse => true,
@@ -15,7 +15,7 @@ class apache::awstats {
     require => Package["awstats"],
   }
 
-  case $operatingsystem {
+  case $::operatingsystem {
 
     Debian,Ubuntu: {
       cron { "update all awstats virtual hosts":
@@ -54,7 +54,7 @@ class apache::awstats {
       }
     }
 
-    default: { fail "Unsupported operatingsystem ${operatingsystem}" }
+    default: { fail "Unsupported operatingsystem ${::operatingsystem}" }
   }
 
 }

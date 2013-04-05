@@ -1,5 +1,5 @@
 define apache::auth::basic::file::group (
-  $ensure="present", 
+  $ensure="present",
   $authname=false,
   $vhost,
   $location="/",
@@ -10,7 +10,7 @@ define apache::auth::basic::file::group (
   $fname = regsubst($name, "\s", "_", "G")
 
   include apache::params
- 
+
   if defined(Apache::Module["authn_file"]) {} else {
     apache::module {"authn_file": }
   }
@@ -36,7 +36,7 @@ define apache::auth::basic::file::group (
   file { "${apache::params::root}/${vhost}/conf/auth-basic-file-group-${fname}.conf":
     ensure => $ensure,
     content => template("apache/auth-basic-file-group.erb"),
-    seltype => $operatingsystem ? {
+    seltype => $::operatingsystem ? {
       "RedHat" => "httpd_config_t",
       "CentOS" => "httpd_config_t",
       default  => undef,

@@ -9,10 +9,9 @@ define apache::vhost (
   $cgibin=true,
   $user="",
   $admin="",
-  $group="root",
+  $group="",
   $mode=2570,
   $aliases=[],
-  $enable_default=true,
   $ports=['*:80'],
   $accesslog_format="combined"
 ) {
@@ -22,6 +21,11 @@ define apache::vhost (
   $wwwuser = $user ? {
     ""      => $apache::params::user,
     default => $user,
+  }
+
+  $wwwgroup = $group ? {
+    ""      => $apache::params::group,
+    default => $group,
   }
 
   # used in ERB templates
@@ -40,36 +44,16 @@ define apache::vhost (
     default => $cgibin,
   }
 
-  # check if default virtual host is enabled
-  if $enable_default == true {
-
-    exec { "enable default virtual host from ${name}":
-      command => "${apache::params::a2ensite} default",
-      unless  => "test -L ${apache::params::conf}/sites-enabled/000-default",
-      notify  => Exec["apache-graceful"],
-      require => Package["apache"],
-    }
-
-  } else {
-
-    exec { "disable default virtual host from ${name}":
-      command => "a2dissite default",
-      onlyif  => "test -L ${apache::params::conf}/sites-enabled/000-default",
-      notify  => Exec["apache-graceful"],
-      require => Package["apache"],
-    }
-  }
-
   case $ensure {
     present: {
       file { "${apache::params::conf}/sites-available/${name}":
         ensure  => present,
         owner   => root,
         group   => root,
-        mode    => 644,
-        seltype => $operatingsystem ? {
-          redhat => "httpd_config_t",
-          CentOS => "httpd_config_t",
+        mode    => '0644',
+        seltype => $::operatingsystem ? {
+          redhat => 'httpd_config_t',
+          CentOS => 'httpd_config_t',
           default => undef,
         },
         require => Package[$apache::params::pkg],
@@ -80,8 +64,8 @@ define apache::vhost (
         ensure => directory,
         owner  => root,
         group  => root,
-        mode   => 755,
-        seltype => $operatingsystem ? {
+        mode   => '0755',
+        seltype => $::operatingsystem ? {
           redhat => "httpd_sys_content_t",
           CentOS => "httpd_sys_content_t",
           default => undef,
@@ -89,19 +73,39 @@ define apache::vhost (
         require => File["root directory"],
       }
 
+<<<<<<< HEAD
       file { "${home}/${name}/htdocs":
+=======
+      file { "${apache::params::root}/${name}/conf":
+        ensure => directory,
+        owner  => $admin ? {
+          "" => $wwwuser,
+          default => $admin,
+        },
+        group  => $wwwgroup,
+        mode   => $mode,
+        seltype => $::operatingsystem ? {
+          redhat => "httpd_config_t",
+          CentOS => "httpd_config_t",
+          default => undef,
+        },
+        require => [File["${apache::params::root}/${name}"]],
+      }
+
+      file { "${apache::params::root}/${name}/htdocs":
+>>>>>>> github/master
         ensure => directory,
         owner  => $wwwuser,
-        group  => $group,
+        group  => $wwwgroup,
         mode   => $mode,
-        seltype => $operatingsystem ? {
+        seltype => $::operatingsystem ? {
           redhat => "httpd_sys_content_t",
           CentOS => "httpd_sys_content_t",
           default => undef,
         },
         require => [File["${home}/${name}"]],
       }
- 
+
       if $htdocs {
         File["${home}/${name}/htdocs"] {
           source  => $htdocs,
@@ -120,9 +124,9 @@ define apache::vhost (
           default => undef, # don't manage this directory unless under $root/$name
         },
         owner  => $wwwuser,
-        group  => $group,
+        group  => $wwwgroup,
         mode   => $mode,
-        seltype => $operatingsystem ? {
+        seltype => $::operatingsystem ? {
           redhat => "httpd_sys_script_exec_t",
           CentOS => "httpd_sys_script_exec_t",
           default => undef,
@@ -146,7 +150,7 @@ define apache::vhost (
           } else {
             # default vhost template
             File["${apache::params::conf}/sites-available/${name}"] {
-              content => template("apache/vhost.erb"), 
+              content => template("apache/vhost.erb"),
             }
           }
         }
@@ -157,10 +161,10 @@ define apache::vhost (
         ensure => directory,
         owner  => root,
         group  => root,
-        mode   => 755,
-        seltype => $operatingsystem ? {
-          redhat => "httpd_log_t",
-          CentOS => "httpd_log_t",
+        mode   => '0755',
+        seltype => $::operatingsystem ? {
+          redhat => 'httpd_log_t',
+          CentOS => 'httpd_log_t',
           default => undef,
         },
         require => File["${home}/${name}"],
@@ -173,10 +177,10 @@ define apache::vhost (
         ensure => present,
         owner => root,
         group => adm,
-        mode => 644,
-        seltype => $operatingsystem ? {
-          redhat => "httpd_log_t",
-          CentOS => "httpd_log_t",
+        mode => '0644',
+        seltype => $::operatingsystem ? {
+          redhat => 'httpd_log_t',
+          CentOS => 'httpd_log_t',
           default => undef,
         },
         require => File["${home}/${name}/logs"],
@@ -186,11 +190,11 @@ define apache::vhost (
       file {"${home}/${name}/private":
         ensure  => directory,
         owner   => $wwwuser,
-        group   => $group,
+        group   => $wwwgroup,
         mode    => $mode,
-        seltype => $operatingsystem ? {
-          redhat => "httpd_sys_content_t",
-          CentOS => "httpd_sys_content_t",
+        seltype => $::operatingsystem ? {
+          redhat => 'httpd_sys_content_t',
+          CentOS => 'httpd_sys_content_t',
           default => undef,
         },
         require => File["${home}/${name}"],
@@ -201,7 +205,7 @@ define apache::vhost (
         ensure  => present,
         owner   => root,
         group   => root,
-        mode    => 644,
+        mode    => '0644',
         content => $readme ? {
           false => template("apache/README_vhost.erb"),
           default => $readme,
@@ -210,13 +214,13 @@ define apache::vhost (
       }
 
       exec {"enable vhost ${name}":
-        command => $operatingsystem ? {
+        command => $::operatingsystem ? {
           RedHat => "${apache::params::a2ensite} ${name}",
           CentOS => "${apache::params::a2ensite} ${name}",
           default => "${apache::params::a2ensite} ${name}"
         },
         notify  => Exec["apache-graceful"],
-        require => [$operatingsystem ? {
+        require => [$::operatingsystem ? {
           redhat => File["${apache::params::a2ensite}"],
           CentOS => File["${apache::params::a2ensite}"],
           default => Package[$apache::params::pkg]},
@@ -229,12 +233,12 @@ define apache::vhost (
       }
     }
 
-    absent:{
+    absent: {
       file { "${apache::params::conf}/sites-enabled/${name}":
         ensure  => absent,
         require => Exec["disable vhost ${name}"]
       }
-      
+
       file { "${apache::params::conf}/sites-available/${name}":
         ensure  => absent,
         require => Exec["disable vhost ${name}"]
@@ -247,24 +251,28 @@ define apache::vhost (
       }
 
       exec { "disable vhost ${name}":
-        command => $operatingsystem ? {
+        command => $::operatingsystem ? {
           RedHat => "/usr/local/sbin/a2dissite ${name}",
           CentOS => "/usr/local/sbin/a2dissite ${name}",
           default => "/usr/sbin/a2dissite ${name}"
         },
         notify  => Exec["apache-graceful"],
-        require => [$operatingsystem ? {
+        require => [$::operatingsystem ? {
           redhat => File["${apache::params::a2ensite}"],
           CentOS => File["${apache::params::a2ensite}"],
           default => Package[$apache::params::pkg]}],
-        onlyif => "/bin/sh -c '[ -L ${apache::params::conf}/sites-enabled/${name} ] \\
-          && [ ${apache::params::conf}/sites-enabled/${name} -ef ${apache::params::conf}/sites-available/${name} ]'",
+          onlyif => "/bin/sh -c '[ -L ${apache::params::conf}/sites-enabled/${name} ] \\
+            && [ ${apache::params::conf}/sites-enabled/${name} -ef ${apache::params::conf}/sites-available/${name} ]'",
       }
-   }
+    }
 
-   disabled: {
+    disabled: {
       exec { "disable vhost ${name}":
-        command => "a2dissite ${name}",
+        command => $operatingsystem ? {
+          RedHat => "/usr/local/sbin/a2dissite ${name}",
+          CentOS => "/usr/local/sbin/a2dissite ${name}",
+          default => "/usr/sbin/a2dissite ${name}"
+        },
         notify  => Exec["apache-graceful"],
         require => Package[$apache::params::pkg],
         onlyif => "/bin/sh -c '[ -L ${apache::params::conf}/sites-enabled/${name} ] \\
@@ -276,6 +284,6 @@ define apache::vhost (
         require => Exec["disable vhost ${name}"]
       }
     }
-    default: { err ( "Unknown ensure value: '${ensure}'" ) }
+    default: { fail ( "Unknown ensure value: '${ensure}'" ) }
   }
 }

@@ -19,17 +19,19 @@ Usage:
 */
 class apache::collectd {
 
-  if ($operatingsystem == "RedHat" or $operatingsystem == "CentOS") and $lsbmajdistrelease > "4" {
+  # trick to check which collectd module we are using
+  include ::collectd
+  if ($::collectd::confdir != '') {
 
-    package { "collectd-apache":
-      ensure => present,
-      before => Collectd::Plugin["apache"],
+    collectd::config::plugin { 'monitor local apache':
+      plugin   => 'apache',
+      settings => 'URL "http://localhost/server-status?auto"',
     }
-  }
-
-  collectd::plugin { "apache":
-    lines   => ['URL "http://localhost/server-status?auto"'],
-    require => Package["curl"],
+  } else {
+    collectd::plugin { "apache":
+      lines   => ['URL "http://localhost/server-status?auto"'],
+      require => Package["curl"],
+    }
   }
 
 }
